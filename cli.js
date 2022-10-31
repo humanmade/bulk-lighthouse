@@ -19,7 +19,7 @@ const DEFAULT_RESULTS_DIR = 'lighthouse-reports';
  * @returns {Array} Config file.
  */
 function getConfig() {
-	const configFile = path.resolve( process.argv[1] );
+	const configFile = path.resolve( process.argv[2] );
 	if ( ! fs.existsSync( configFile ) ) {
 		console.error( colors.red( 'Error: Config file not found.' ) );
 		process.exitCode = 1;
@@ -190,7 +190,7 @@ function getResultsTable( results, strategy ) {
  */
  ( async () => {
 	const config = getConfig();
-	const urlGroup = process.argv[2];
+	const urlGroup = process.argv[3] || Object.keys( config.urls )[0];
 
 	if ( ! urlGroup ) {
 		console.error( colors.red( 'Error: No urlGroup specified. Script usage e.g. `node lighthouse production`' ) );
