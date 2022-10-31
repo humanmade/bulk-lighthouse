@@ -83,7 +83,7 @@ async function runTests( url, strategy ) {
 	}
 
 	const testUrl = new URL( url );
-	Object.keys( config.searchParams ).forEach( param => {
+	Object.keys( config.searchParams || {} ).forEach( param => {
 		testUrl.searchParams.append( param, config.searchParams[ param ] );
 	} );
 
