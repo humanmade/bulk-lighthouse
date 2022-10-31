@@ -1,0 +1,36 @@
+{
+  "name": "@humanmade/bulk-lighthouse",
+  "version": "1.0.0",
+  "description": "Run bulk lighthouse tests using Google PageSpeed Insights API",
+  "main": "cli.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "lint": "eslint ."
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/humanmade/bulk-lighthouse.git"
+  },
+  "author": "Human Made Limited, Matthew Haines-Young",
+  "license": "MIT",
+  "bin": {
+    "bulk-lighthouse": "./cli.js"
+  },
+  "bugs": {
+    "url": "https://github.com/humanmade/bulk-lighthouse/issues"
+  },
+  "homepage": "https://github.com/humanmade/bulk-lighthouse#readme",
+  "devDependencies": {
+    "@humanmade/eslint-config": "^1.1.3",
+    "babel-eslint": "^10.1.0",
+    "eslint": "^7.32.0",
+    "eslint-config-react-app": "^3.0.8",
+    "eslint-plugin-flowtype": "^3.13.0",
+    "eslint-plugin-import": "^2.26.0",
+    "eslint-plugin-jsdoc": "^29.2.0",
+    "eslint-plugin-jsx-a11y": "^6.6.1",
+    "eslint-plugin-react": "^7.31.10",
+    "eslint-plugin-react-hooks": "^4.6.0",
+    "eslint-plugin-sort-destructure-keys": "^1.4.0"
+  }
+}
