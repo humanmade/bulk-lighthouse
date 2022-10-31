@@ -71,15 +71,15 @@ function writeResultsFile( fileName, resultsData ) {
  */
 async function runTests( url, strategy ) {
 	const config = getConfig();
-	const returnData = {
+	const defaultData = {
 		url,
 		strategy,
-		tests: {},
+		lighthouse: {},
 	};
 
 	const categories = Object.keys( config.categories );
 	if ( ! categories?.length ) {
-		return returnData;
+		return defaultData;
 	}
 
 	const testUrl = new URL( url );
@@ -114,7 +114,7 @@ async function runTests( url, strategy ) {
 		response = await rawResponse.json();
 	} catch ( err ) {
 		console.error( colors.red( err.toString() ) );
-		return returnData;
+		return defaultData;
 	}
 
 	const { lighthouseResult } = response;
@@ -123,7 +123,7 @@ async function runTests( url, strategy ) {
 		console.error( colors.red( `Error. Failed to retrieve result for ${ testUrl.toString() } - ${ strategy }` ) );
 		console.error( colors.red( `${ requestUrl.toString() }` ) );
 		console.error( response );
-		return returnData;
+		return defaultData;
 	}
 
 	writeResultsFile(
@@ -132,8 +132,8 @@ async function runTests( url, strategy ) {
 	);
 
 	return {
-		...returnData,
-		tests: Object.entries( lighthouseResult.categories ).reduce( ( scores, [ category, { score = 0 } ] ) => {
+		...defaultData,
+		lighthouse: Object.entries( lighthouseResult.categories ).reduce( ( scores, [ category, { score = 0 } ] ) => {
 			scores[ category ] = score * 100;
 			return scores;
 		}, {} ),
@@ -178,7 +178,7 @@ function getResultsTable( results, strategy ) {
 	results.forEach( ( result, index ) => {
 		table.push( [
 			urls[ index ],
-			...categories.map( ( [ category, { threshold } ] ) => formatResult( result.tests[ category ], threshold[ strategy ] ) ),
+			...categories.map( ( [ category, { threshold } ] ) => formatResult( result.lighthouse[ category ], threshold[ strategy ] ) ),
 		] );
 	} );
 
@@ -230,7 +230,7 @@ function getResultsTable( results, strategy ) {
 		console.log();
 
 		const { fail = 0, total = 0 } = results.reduce( ( tests, result ) => {
-			Object.entries( result.tests ).forEach( ( [ category, score ] ) => {
+			Object.entries( result.lighthouse ).forEach( ( [ category, score ] ) => {
 				tests.total++;
 				if ( score < categories[ category ].threshold ) {
 					tests.fail++;
