@@ -127,7 +127,7 @@ async function runTests( url, strategy ) {
 	}
 
 	writeResultsFile(
-		`${ format( new Date(), 'yyyy-MM-dd' ) }-${ slugify( url.replace( /https?:\/\//, '' ) ) }-${ strategy }`,
+		`${ format( new Date(), 'yyyy-MM-dd' ) }-${ slugify( url.replace( /https?:\/\//, '' ).replace( '/', '-' ) ) }-${ strategy }`,
 		lighthouseResult
 	);
 
