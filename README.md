@@ -65,7 +65,7 @@ Define several URLs for significant pages on your site, and run tests against th
 },
 ```
 
-**`strategies`** Required. Array. The device running strategy to be used in analysis. Both, or one of `desktop` or `mobile. See https://developers.google.com/speed/docs/insights/rest/v5/pagespeedapi/runpagespeed#strategy
+**`strategies`** Required. Array. The device running strategy to be used in analysis. Both, or one of `desktop` or `mobile`. See https://developers.google.com/speed/docs/insights/rest/v5/pagespeedapi/runpagespeed#strategy
 
 **`urls`**. Required. Group URLs (e.g. by environment). Specify the group of URLs to run when executing the script e.g. `node .scripts/lighthouse.js staging`. If no group is specified, the first one configured will be used.
 
