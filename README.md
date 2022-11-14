@@ -87,4 +87,5 @@ Define several URLs for significant pages on your site, and run tests against th
 ## Caveats
 
 * Pages being tested must be publicly accessible. If authentication is enabled, it is recommended to use searchParams can be used to append a search parameter to the tested page URL that could be used to bypass this.
+* Page Caching. Often full pages are cached for a short period of time, and it can introduce significant varance in results depending on whether you hit a cached page or not. To avoid this, this library actually makes a pre-flight request to prime the cache of any page being tested. The downside of this is that this tool will only test front end performance, and real world performance may well be different from this if cache hit rates are low. 
 * Note that lighthouse test results can vary. They vary between runs, and the results you get from a single lighthouse test will vary from data provided by Chrome User Experience Reports.
