@@ -4,12 +4,13 @@ Run bulk lighthouse tests using [Google PageSpeed Insights API](https://develope
 
 Define several URLs for significant pages on your site, and run tests against them all easily. The results are displayed in your console, and also saved in a file as JSON so that you can save for future reference.
 
-## Running the script.
+## Installation
 
-`bulk-lighthouse .config/lighthouse.json`
+From your project, run: 
 
-* Param 1. Path to config file.
-* Param 2. (optional) Group of URLs to run tests against as specified in config under `urls`.
+```
+npm i @humanmade/bulk-lighthouse --save-dev
+```
 
 ## Configuration.
 
@@ -34,6 +35,17 @@ Define several URLs for significant pages on your site, and run tests against th
 	}
 }
 ```
+
+## Running the script.
+
+```
+bulk-lighthouse .config/lighthouse.json
+```
+
+* Param 1. Path to config file.
+* Param 2. (optional) Group of URLs to run tests against as specified in config under `urls`.
+
+It is recommended that you add a commend to execute this to the `scripts` object in your project package.json for ease of use. To run as a one-off, use `npm run env -- bulk-lighthouse .config/lighthouse.json`.
 
 **`googleApiKey`**: Optional. See https://developers.google.com/speed/docs/insights/v5/get-started to generate an API key. Providing one will ensure that you don't hit rate limits.
 
