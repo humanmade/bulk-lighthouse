@@ -188,7 +188,7 @@ function getResultsTable( results, strategy ) {
 /**
  * Execute.
  */
- ( async () => {
+( async () => {
 	const config = getConfig();
 	const urlGroup = process.argv[3] || Object.keys( config.urls )[0];
 
