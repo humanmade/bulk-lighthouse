@@ -1,6 +1,6 @@
 {
   "name": "@humanmade/bulk-lighthouse",
-  "version": "1.0.1",
+  "version": "1.0.3",
   "description": "Run bulk lighthouse tests using Google PageSpeed Insights API",
   "main": "cli.js",
   "scripts": {

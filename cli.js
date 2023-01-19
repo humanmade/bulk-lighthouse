@@ -71,19 +71,19 @@ function writeResultsFile( fileName, resultsData ) {
  */
 async function runTests( url, strategy ) {
 	const config = getConfig();
-	const returnData = {
+	const defaultData = {
 		url,
 		strategy,
-		tests: {},
+		lighthouse: {},
 	};
 
 	const categories = Object.keys( config.categories );
 	if ( ! categories?.length ) {
-		return returnData;
+		return defaultData;
 	}
 
 	const testUrl = new URL( url );
-	Object.keys( config.searchParams ).forEach( param => {
+	Object.keys( config.searchParams || {} ).forEach( param => {
 		testUrl.searchParams.append( param, config.searchParams[ param ] );
 	} );
 
@@ -114,7 +114,7 @@ async function runTests( url, strategy ) {
 		response = await rawResponse.json();
 	} catch ( err ) {
 		console.error( colors.red( err.toString() ) );
-		return returnData;
+		return defaultData;
 	}
 
 	const { lighthouseResult } = response;
@@ -123,7 +123,7 @@ async function runTests( url, strategy ) {
 		console.error( colors.red( `Error. Failed to retrieve result for ${ testUrl.toString() } - ${ strategy }` ) );
 		console.error( colors.red( `${ requestUrl.toString() }` ) );
 		console.error( response );
-		return returnData;
+		return defaultData;
 	}
 
 	writeResultsFile(
@@ -132,8 +132,8 @@ async function runTests( url, strategy ) {
 	);
 
 	return {
-		...returnData,
-		tests: Object.entries( lighthouseResult.categories ).reduce( ( scores, [ category, { score = 0 } ] ) => {
+		...defaultData,
+		lighthouse: Object.entries( lighthouseResult.categories ).reduce( ( scores, [ category, { score = 0 } ] ) => {
 			scores[ category ] = score * 100;
 			return scores;
 		}, {} ),
@@ -178,7 +178,7 @@ function getResultsTable( results, strategy ) {
 	results.forEach( ( result, index ) => {
 		table.push( [
 			urls[ index ],
-			...categories.map( ( [ category, { threshold } ] ) => formatResult( result.tests[ category ], threshold[ strategy ] ) ),
+			...categories.map( ( [ category, { threshold } ] ) => formatResult( result.lighthouse[ category ], threshold[ strategy ] ) ),
 		] );
 	} );
 
@@ -186,9 +186,41 @@ function getResultsTable( results, strategy ) {
 }
 
 /**
+ * Run tests in batches.
+ *
+ * * Useful to avoid running into quota limits or too many requests errors.
+ *
+ * @param {number} batchSize  The number of URLs to include in each batch of tests.
+ * @param {Array}  strategies Strategies to test for (e.g mobile)
+ * @param {Array}  urls       URLs to test.
+ *
+ * @returns {Promise} Resolves to an array of arrays where subarrays are results of a strategy for the tested URLs.
+ */
+async function runBatchedTests( batchSize, strategies, urls ) {
+	const allResults = [];
+
+	for ( let i = 0; i < strategies.length; i++ ) {
+		const strategy = strategies[i];
+		const strategyResults = [];
+
+		for ( let j = 0; j < urls.length; j += batchSize ) {
+			const batch = urls.slice( j, j + batchSize );
+			const batchResults = await Promise.all( batch.map( url => runTests( url, strategy ) ) );
+			strategyResults.push( ...batchResults );
+		}
+
+		allResults.push( strategyResults );
+	}
+
+	return new Promise( resolve => {
+		resolve( allResults );
+	} );
+}
+
+/**
  * Execute.
  */
- ( async () => {
+( async () => {
 	const config = getConfig();
 	const urlGroup = process.argv[3] || Object.keys( config.urls )[0];
 
@@ -216,10 +248,19 @@ function getResultsTable( results, strategy ) {
 
 	let hasFailures = false;
 
-	// Run tests concurrently.
-	const allResults = await Promise.all(
-		strategies.map( strategy => Promise.all( urls.map( test => runTests( test, strategy ) ) ) )
-	);
+	let allResults = [];
+
+	if ( ( 'batchTests' in config && config.batchTests ) ) {
+		const batchSize = ( 'batchSize' in config && config.batchSize > 0 ) ? config.batchSize : 10;
+
+		// Run tests concurrently in batches.
+		allResults = await runBatchedTests( batchSize, strategies, urls );
+	} else {
+		// Run tests concurrently all at once.
+		allResults = await Promise.all(
+			strategies.map( strategy => Promise.all( urls.map( test => runTests( test, strategy ) ) ) )
+		);
+	}
 
 	strategies.forEach( ( strategy, index ) => {
 		const results = allResults[ index ];
@@ -230,7 +271,7 @@ function getResultsTable( results, strategy ) {
 		console.log();
 
 		const { fail = 0, total = 0 } = results.reduce( ( tests, result ) => {
-			Object.entries( result.tests ).forEach( ( [ category, score ] ) => {
+			Object.entries( result.lighthouse ).forEach( ( [ category, score ] ) => {
 				tests.total++;
 				if ( score < categories[ category ].threshold ) {
 					tests.fail++;
