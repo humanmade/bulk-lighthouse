@@ -271,12 +271,20 @@ async function runBatchedTests( batchSize, strategies, urls ) {
 		console.log();
 
 		const { fail = 0, total = 0 } = results.reduce( ( tests, result ) => {
-			Object.entries( result.lighthouse ).forEach( ( [ category, score ] ) => {
-				tests.total++;
-				if ( score < categories[ category ].threshold ) {
-					tests.fail++;
-				}
-			} );
+			const lighthouseResult = Object.entries( result.lighthouse );
+			if ( lighthouseResult.length === 0 ) {
+				// All category tests considered failed.
+				const totalCategories = Object.keys( categories ).length;
+				tests.fail += totalCategories;
+				tests.total += totalCategories;
+			} else {
+				lighthouseResult.forEach( ( [ category, score ] ) => {
+					tests.total++;
+					if ( score < categories[ category ].threshold[strategy] ) {
+						tests.fail++;
+					}
+				} );
+			}
 
 			return tests;
 		}, {
