@@ -33,6 +33,7 @@ It is recommended to add a script to your `package.json` scripts. You can then e
 	}
 	...
 }
+```
 
 To run as a one-off, use `npm run env -- bulk-lighthouse .config/lighthouse.json`.
 
