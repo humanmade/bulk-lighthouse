@@ -23,7 +23,7 @@ bulk-lighthouse .config/lighthouse.json
 * Param 1. Path to config file.
 * Param 2. (optional) Group of URLs to run tests against as specified in config under `urls`.
 
-It is recommended to add the script to your `package.json` scripts. You can then execute the script with the following command `npm run bulk-lighthouse`.
+It is recommended to add a script to your `package.json` scripts. You can then execute the script with the following command `npm run bulk-lighthouse`.
 
 ```
 {
@@ -110,6 +110,10 @@ Here is a basic config JSON file that you can copy/paste to get started.
 ```
 
 **`resultsDir`** Optional. Directory in which to save results as JSON. Defaults to `lighthouse-reports`.
+
+**`batchTests`** Optional. Whether to run the tests in batches. Set to `true` for tests to be batched otherwise remove or set to `false` to run all tests concurrently.
+
+**`batchSize`** Optional. The number of URLs to include in each batch. Defaults to `10` if batchTests is true and value isn't set.
 
 ## Caveats
 

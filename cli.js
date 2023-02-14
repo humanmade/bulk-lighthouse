@@ -186,6 +186,38 @@ function getResultsTable( results, strategy ) {
 }
 
 /**
+ * Run tests in batches.
+ *
+ * * Useful to avoid running into quota limits or too many requests errors.
+ *
+ * @param {number} batchSize  The number of URLs to include in each batch of tests.
+ * @param {Array}  strategies Strategies to test for (e.g mobile)
+ * @param {Array}  urls       URLs to test.
+ *
+ * @returns {Promise} Resolves to an array of arrays where subarrays are results of a strategy for the tested URLs.
+ */
+async function runBatchedTests( batchSize, strategies, urls ) {
+	const allResults = [];
+
+	for ( let i = 0; i < strategies.length; i++ ) {
+		const strategy = strategies[i];
+		const strategyResults = [];
+
+		for ( let j = 0; j < urls.length; j += batchSize ) {
+			const batch = urls.slice( j, j + batchSize );
+			const batchResults = await Promise.all( batch.map( url => runTests( url, strategy ) ) );
+			strategyResults.push( ...batchResults );
+		}
+
+		allResults.push( strategyResults );
+	}
+
+	return new Promise( resolve => {
+		resolve( allResults );
+	} );
+}
+
+/**
  * Execute.
  */
 ( async () => {
@@ -216,10 +248,19 @@ function getResultsTable( results, strategy ) {
 
 	let hasFailures = false;
 
-	// Run tests concurrently.
-	const allResults = await Promise.all(
-		strategies.map( strategy => Promise.all( urls.map( test => runTests( test, strategy ) ) ) )
-	);
+	let allResults = [];
+
+	if ( ( 'batchTests' in config && config.batchTests ) ) {
+		const batchSize = ( 'batchSize' in config && config.batchSize > 0 ) ? config.batchSize : 10;
+
+		// Run tests concurrently in batches.
+		allResults = await runBatchedTests( batchSize, strategies, urls );
+	} else {
+		// Run tests concurrently all at once.
+		allResults = await Promise.all(
+			strategies.map( strategy => Promise.all( urls.map( test => runTests( test, strategy ) ) ) )
+		);
+	}
 
 	strategies.forEach( ( strategy, index ) => {
 		const results = allResults[ index ];
