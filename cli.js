@@ -2,41 +2,46 @@
 
 /* eslint-disable no-console */
 
-const fs = require( 'fs' );
-const path = require( 'path' );
+import fs from 'fs';
+import path from 'path';
 
-const Table = require( 'cli-table3' );
-const colors = require( 'colors' );
-const { format } = require( 'date-fns' );
-const fetch = require( 'node-fetch' );
-const slugify = require( 'slugify' );
+import * as chromeLauncher from 'chrome-launcher';
+import Table from 'cli-table3';
+import colors from 'colors';
+import { format, startOfQuarter } from 'date-fns';
+import lighthouse from 'lighthouse';
+import fetch from 'node-fetch';
+import slugify from 'slugify';
 
 const DEFAULT_RESULTS_DIR = 'lighthouse-reports';
 
 /**
  * Get configuration from file specified when executing script.
  *
+ * Supports groups with different config options. Merged with top level config. .
+ *
  * @returns {Array} Config file.
  */
 function getConfig() {
 	const configFile = path.resolve( process.argv[2] );
+
 	if ( ! fs.existsSync( configFile ) ) {
 		console.error( colors.red( 'Error: Config file not found.' ) );
 		process.exitCode = 1;
 		return;
 	}
-	return require( configFile );
-}
 
-/**
- * Get URLs from config for urlGroup.
- *
- * @param {string} urlGroup Group.
- * @returns {Array} Suite of URLs to test.
- */
-function getUrls( urlGroup ) {
-	const config = getConfig();
-	return config.urls[ urlGroup ] || Object.values( config.urls )[0] || [];
+	const config = JSON.parse( fs.readFileSync( configFile ) );
+	const group = process.argv[3] || Object.keys( config.urls )[0];
+
+	if ( config.groups && group in config.groups ) {
+		return {
+			...config,
+			...config.groups[ group ],
+		};
+	} else {
+		return config;
+	}
 }
 
 /**
@@ -60,6 +65,7 @@ function writeResultsFile( fileName, resultsData ) {
 		`${dir}/${ fileName }.json`,
 		JSON.stringify( resultsData, null, '\t' )
 	);
+
 }
 
 /**
@@ -69,7 +75,7 @@ function writeResultsFile( fileName, resultsData ) {
  * @param {string} strategy - Testing strategy (e.g., "mobile").
  * @returns {object} Results data as JSON.
  */
-async function runTests( url, strategy ) {
+async function runTestsForUrlLighthouse( strategy, url  ) {
 	const config = getConfig();
 	const defaultData = {
 		url,
@@ -87,13 +93,61 @@ async function runTests( url, strategy ) {
 		testUrl.searchParams.append( param, config.searchParams[ param ] );
 	} );
 
-	// Make a request to the page URL
-	// This ensures page is cached, which ensures more consistent results.
-	try {
-		await fetch( testUrl.toString() );
-	} catch ( err ) {
-		console.error( colors.red( 'Cache prime request failed' ) );
+	const chrome = await chromeLauncher.launch( { chromeFlags: [ '--headless' ] } );
+	const options = {
+		logLevel: 'warn',
+		output: 'json',
+		onlyCategories: categories,
+		port: chrome.port,
+	};
+
+	const { lhr: lighthouseResult } = await lighthouse( testUrl.toString(), options );
+
+	await chrome.kill();
+
+	if ( ! lighthouseResult ) {
+		console.error( colors.red( `Error. Failed to retrieve result for ${ testUrl.toString() } - ${ strategy }` ) );
+		return defaultData;
 	}
+
+	writeResultsFile(
+		`${ format( new Date(), 'yyyy-MM-dd' ) }-${ slugify( url.replace( /https?:\/\//, '' ).replace( '/', '-' ) ) }-${ strategy }`,
+		lighthouseResult
+	);
+
+	return {
+		...defaultData,
+		lighthouse: Object.entries( lighthouseResult.categories ).reduce( ( scores, [ category, { score = 0 } ] ) => {
+			scores[ category ] = score * 100;
+			return scores;
+		}, {} ),
+	};
+}
+
+/**
+ * Run tests for a single URL.
+ *
+ * @param {string} url - Test URL.
+ * @param {string} strategy - Testing strategy (e.g., "mobile").
+ * @returns {object} Results data as JSON.
+ */
+async function runTestsForUrlPagespeed( strategy, url ) {
+	const config = getConfig();
+	const defaultData = {
+		url,
+		strategy,
+		lighthouse: {},
+	};
+
+	const categories = Object.keys( config.categories );
+	if ( ! categories?.length ) {
+		return defaultData;
+	}
+
+	const testUrl = new URL( url );
+	Object.keys( config.searchParams || {} ).forEach( param => {
+		testUrl.searchParams.append( param, config.searchParams[ param ] );
+	} );
 
 	const requestUrl = new URL( 'https://www.googleapis.com/pagespeedonline/v5/runPagespeed' );
 	requestUrl.searchParams.append( 'url', testUrl.toString() );
@@ -103,11 +157,13 @@ async function runTests( url, strategy ) {
 		requestUrl.searchParams.append( 'category', category );
 	} );
 
-	if ( config.googleAPIKey ) {
-		requestUrl.searchParams.append( 'key', config.googleAPIKey );
+	if ( config.googleApiKey ) {
+		requestUrl.searchParams.append( 'key', config.googleApiKey );
 	}
 
 	let response;
+
+	console.log( requestUrl.toString() );
 
 	try {
 		const rawResponse = await fetch( requestUrl.toString() );
@@ -186,17 +242,20 @@ function getResultsTable( results, strategy ) {
 }
 
 /**
- * Run tests in batches.
+ * Get pagespeed results.
  *
- * * Useful to avoid running into quota limits or too many requests errors.
+ * Runs tests in batches. 400 by default.
+ * Configuring this is useful to avoid running into rate limits or similar.
  *
- * @param {number} batchSize  The number of URLs to include in each batch of tests.
+
  * @param {Array}  strategies Strategies to test for (e.g mobile)
  * @param {Array}  urls       URLs to test.
  *
  * @returns {Promise} Resolves to an array of arrays where subarrays are results of a strategy for the tested URLs.
  */
-async function runBatchedTests( batchSize, strategies, urls ) {
+async function runPagespeed( strategies, urls ) {
+	const config = getConfig();
+	const batchSize = ( 'batchSize' in config && config.batchSize > 0 ) ? config.batchSize : 400;
 	const allResults = [];
 
 	for ( let i = 0; i < strategies.length; i++ ) {
@@ -205,7 +264,8 @@ async function runBatchedTests( batchSize, strategies, urls ) {
 
 		for ( let j = 0; j < urls.length; j += batchSize ) {
 			const batch = urls.slice( j, j + batchSize );
-			const batchResults = await Promise.all( batch.map( url => runTests( url, strategy ) ) );
+			console.log( batch );
+			const batchResults = await Promise.all( batch.map( url => runTestsForUrlPagespeed( strategy, url ) ) );
 			strategyResults.push( ...batchResults );
 		}
 
@@ -218,49 +278,58 @@ async function runBatchedTests( batchSize, strategies, urls ) {
 }
 
 /**
+ * Run tests for all urls and strategies using the lighthouse engine.
+ *
+ * @param {Array} strategies Strategies e.g. desktop, mobile.
+ * @param {Array} urls URLs.
+ * @returns {Array} Results.
+ */
+async function runLighthouse( strategies, urls ) {
+	const allResults =[];
+	for ( const strategy of strategies ) {
+		const strategyResults = [];
+		for ( const url of urls ) {
+			strategyResults.push( await runTestsForUrlLighthouse( strategy, url ) );
+		}
+		allResults.push( strategyResults );
+	}
+
+	return allResults;
+}
+
+/**
  * Execute.
  */
 ( async () => {
 	const config = getConfig();
-	const urlGroup = process.argv[3] || Object.keys( config.urls )[0];
+	const { categories, engine = 'pagespeed', strategies, urls } = config;
 
-	if ( ! urlGroup ) {
-		console.error( colors.red( 'Error: No urlGroup specified. Script usage e.g. `node lighthouse production`' ) );
-		process.exitCode = 1;
-		return;
-	}
-
-	const urls = getUrls( urlGroup );
 	if ( ! urls?.length ) {
-		console.error( colors.red( 'Error: No URL specified.' ) );
+		console.error( colors.red( 'Error: No URLs specified.' ) );
 		process.exitCode = 1;
 		return;
 	}
 
-	const { strategies } = config;
 	if ( ! strategies?.length ) {
 		console.error( colors.red( 'Error: No strategies specified.' ) );
 		process.exitCode = 1;
 		return;
 	}
 
-	const { categories } = config;
+	if ( [ 'pagespeed', 'lighthouse' ].indexOf( engine ) < 0 ) {
+		console.error( colors.red( 'Error: Engine not supported. Expected pagespeed or lighthouse' ) );
+		process.exitCode = 1;
+	}
+
+	let allResults;
+
+	if ( engine === 'pagespeed' ) {
+		allResults = await runPagespeed( strategies, urls );
+	} else {
+		allResults = await runLighthouse( strategies, urls );
+	}
 
 	let hasFailures = false;
-
-	let allResults = [];
-
-	if ( ( 'batchTests' in config && config.batchTests ) ) {
-		const batchSize = ( 'batchSize' in config && config.batchSize > 0 ) ? config.batchSize : 10;
-
-		// Run tests concurrently in batches.
-		allResults = await runBatchedTests( batchSize, strategies, urls );
-	} else {
-		// Run tests concurrently all at once.
-		allResults = await Promise.all(
-			strategies.map( strategy => Promise.all( urls.map( test => runTests( test, strategy ) ) ) )
-		);
-	}
 
 	strategies.forEach( ( strategy, index ) => {
 		const results = allResults[ index ];
