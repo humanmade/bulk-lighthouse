@@ -8,8 +8,9 @@ import path from 'path';
 import * as chromeLauncher from 'chrome-launcher';
 import Table from 'cli-table3';
 import colors from 'colors';
-import { format, startOfQuarter } from 'date-fns';
+import { format } from 'date-fns';
 import lighthouse from 'lighthouse';
+import desktopConfig from 'lighthouse/core/config/desktop-config.js';
 import fetch from 'node-fetch';
 import slugify from 'slugify';
 
@@ -32,6 +33,7 @@ function getConfig() {
 	}
 
 	const config = JSON.parse( fs.readFileSync( configFile ) );
+
 	const group = process.argv[3] || Object.keys( config.urls )[0];
 
 	if ( config.groups && group in config.groups ) {
@@ -94,14 +96,17 @@ async function runTestsForUrlLighthouse( strategy, url  ) {
 	} );
 
 	const chrome = await chromeLauncher.launch( { chromeFlags: [ '--headless' ] } );
-	const options = {
+
+	const flags = {
 		logLevel: 'warn',
 		output: 'json',
 		onlyCategories: categories,
 		port: chrome.port,
 	};
 
-	const { lhr: lighthouseResult } = await lighthouse( testUrl.toString(), options );
+	const lighthouseConfig = strategy === 'desktop' ? desktopConfig : { extends: 'lighthouse:default' };
+
+	const { lhr: lighthouseResult } = await lighthouse( testUrl.toString(), flags, lighthouseConfig );
 
 	await chrome.kill();
 
@@ -200,11 +205,22 @@ async function runTestsForUrlPagespeed( strategy, url ) {
  * Format test result.
  *
  * @param {number} score - Test result out of 100.
- * @param {number} threshold - Threshold for passing.
+ * @param {number} category - Threshold for passing.
+ * @param {number} strategy - Threshold for failing.
  * @returns {string} Score, but colored.
  */
-function formatResult( score, threshold ) {
-	return score >= threshold ? colors.green( `✅ ${ Math.round( score ) }` ) : colors.red( `❌ ${ Math.round( score ) }` );
+function formatResult( score, category, strategy ) {
+	const config = getConfig();
+	const threshold = config.categories?.[ category ]?.threshold?.[ strategy ] || 90;
+	const lowerThreshold = config.categories?.[ category ]?.lowerThreshold?.[ strategy ] || 50;
+
+	if ( score >= threshold ) {
+		return colors.green( `✅ ${ Math.round( score ) }` );
+	} else if ( score >= lowerThreshold ) {
+		return colors.yellow( `🆗 ${ Math.round( score ) }` );
+	} else {
+		return colors.red( `❌ ${ Math.round( score ) }` );
+	}
 }
 
 /**
@@ -216,8 +232,7 @@ function formatResult( score, threshold ) {
  */
 function getResultsTable( results, strategy ) {
 	const config = getConfig();
-	const categories = Object.entries( config.categories );
-
+	const categories = Object.keys( config.categories );
 	const urls = results.map( result => result.url );
 
 	const table = new Table( {
@@ -227,14 +242,14 @@ function getResultsTable( results, strategy ) {
 		},
 		head: [
 			'URL',
-			...categories.map( ( [ category, { threshold } ] ) => `${ category.toUpperCase() } (${ threshold[ strategy ] })` ),
+			...categories.map( category => category.toUpperCase() ),
 		],
 	} );
 
 	results.forEach( ( result, index ) => {
 		table.push( [
 			urls[ index ],
-			...categories.map( ( [ category, { threshold } ] ) => formatResult( result.lighthouse[ category ], threshold[ strategy ] ) ),
+			...categories.map( category => formatResult( result.lighthouse[ category ], category, strategy ) ),
 		] );
 	} );
 
@@ -247,7 +262,6 @@ function getResultsTable( results, strategy ) {
  * Runs tests in batches. 400 by default.
  * Configuring this is useful to avoid running into rate limits or similar.
  *
-
  * @param {Array}  strategies Strategies to test for (e.g mobile)
  * @param {Array}  urls       URLs to test.
  *
@@ -337,7 +351,6 @@ async function runLighthouse( strategies, urls ) {
 		// Output table.
 		console.log( colors.blue( strategy.toUpperCase() ) );
 		console.log( getResultsTable( results, strategy ) );
-		console.log();
 
 		const { fail = 0, total = 0 } = results.reduce( ( tests, result ) => {
 			const lighthouseResult = Object.entries( result.lighthouse );
@@ -349,7 +362,8 @@ async function runLighthouse( strategies, urls ) {
 			} else {
 				lighthouseResult.forEach( ( [ category, score ] ) => {
 					tests.total++;
-					if ( score < categories[ category ].threshold[strategy] ) {
+
+					if ( score < ( config.categories?.[ category ]?.threshold?.[ strategy ] || 90 ) ) {
 						tests.fail++;
 					}
 				} );
