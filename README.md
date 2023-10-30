@@ -25,10 +25,10 @@ bulk-lighthouse .config/lighthouse.json
 
 It is recommended to add a script to your `package.json` scripts. You can then execute the script with the following command `npm run bulk-lighthouse`.
 
-```
+```json
 {
 	...
-	scripts: {
+	"scripts": {
 		"bulk-lighthouse": "bulk-lighthouse .config/lighthouse.json"
 	}
 	...
@@ -41,24 +41,17 @@ To run as a one-off, use `npm run env -- bulk-lighthouse .config/lighthouse.json
 
 Here is a basic config JSON file that you can copy/paste to get started.
 
-```
+```json
 {
 	"categories": {
-		"performance": {
-			"threshold": {
-				"desktop": 90,
-				"mobile": 70
-			}
-		},
+		"performance": {}
 	},
 	"strategies": [
 		"mobile",
 		"desktop"
 	],
 	"urls": {
-		"production": [
-			'http://example.com
-		],
+		"http://example.com"
 	}
 }
 ```
@@ -67,9 +60,9 @@ Here is a basic config JSON file that you can copy/paste to get started.
 
 **`searchParams`** Object. Optional. Add search params to the URL you're running the tests against. This can be used to pass keys for authentication.
 
-**`categories`** Required. Object. Tests to run. Provide a pass/fail threshold for each test. Specify a different threshold for each environment. The following config will run only the performance test.  See https://developers.google.com/speed/docs/insights/rest/v5/pagespeedapi/runpagespeed#Category.
+**`categories`** Required. Object. Pass at minimum, an empty object for each test to run. Optionally provide a pass/fail threshold for each test and strategy. By default, the thresholds are aligned with those used by Lighthouse tests for green and amber grades. The following config will performance, accessibility and SEO tests, with the addition of a custom pass threshold for performance test on mobile.  See https://developers.google.com/speed/docs/insights/rest/v5/pagespeedapi/runpagespeed#Category.
 
-```
+```json
 "categories": {
 	"performance": {
 		"threshold": {
@@ -77,18 +70,8 @@ Here is a basic config JSON file that you can copy/paste to get started.
 			"mobile": 70
 		}
 	},
-	"accessibility": {
-		"threshold": {
-			"desktop": 90,
-			"mobile": 90
-		}
-	},
-	"seo": {
-		"threshold": {
-			"desktop": 90,
-			"mobile": 90
-		}
-	},
+	"accessibility": {},
+	"seo": {},
 },
 ```
 
@@ -98,28 +81,23 @@ Here is a basic config JSON file that you can copy/paste to get started.
 	* `pagespeed` (default) Tests are run using the pagespeed API. Faster, especially for large numbers of pages as they are run in parallel. But the limitation of this is that it can only be run against publicly accessible pages. See https://developers.google.com/speed/docs/insights/rest/v5/pagespeedapi/runpagespeed
 	* `lighthouse` Uses lighthouse installed locally. Slower, and probably more chance of variance in results. But can be run against a site running locally.
 
-**`urls`**. Optional. Group URLs (e.g. by environment). Specify the group of URLs to run when executing the script e.g. `node .scripts/lighthouse.js staging`. If no group is specified, the first one configured will be used.
+**`urls`**. Optional. Specify the group of URLs to run when executing the script e.g. `node .scripts/lighthouse.js`.
 
-```
-"urls": {
-	"production": [
-		"https://example.com/",
-		"https://example.com/about",
-	],
-	"staging": [
-		"https://staging.example.com/",
-		"https://staging.example.com/about",
-	]
+```json
+"urls": [
+	"https://example.com/",
+	"https://example.com/about",
+],
 }
 ```
 
 **`resultsDir`** Optional. Directory in which to save results as JSON. Defaults to `lighthouse-reports`.
 
-**`batchSize`** Optional. The number of URLs to include in each batch. Note this is only applicable when using the pagespeed engine. Defaults to `400`.
+**`batchSize`** Optional. The number of URLs to include in each batch. Note this is only applicable when using the pagespeed engine. Defaults to `25`.
 
 **`groups`** Optional. Object. Group tests, e.g. by environment. Each groups allows you to pass a full config object that confirms to the same spec as the main configuration. This is merged with the top level config, with the group taking precedence.
 
-```
+```json
 {
     ...
     "engine": "pagespeed",
@@ -146,7 +124,6 @@ Here is a basic config JSON file that you can copy/paste to get started.
         }
     }
 }
-
 ```
 
 In this example, the config file configures the bulk lighthouse tool to be run against production, using the pagespeed engine. Run the command without specifying a group e.g. `bulk-lighthouse .config/lighthouse.json`.
