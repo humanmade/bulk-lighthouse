@@ -34,7 +34,7 @@ function getConfig() {
 
 	const config = JSON.parse( fs.readFileSync( configFile ) );
 
-	const group = process.argv[3] || Object.keys( config.urls )[0];
+	const group = process.argv[3] || Object.keys( config.groups )[0];
 
 	if ( config.groups && group in config.groups ) {
 		return {
