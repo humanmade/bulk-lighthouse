@@ -131,6 +131,45 @@ The groups option is then used to modify the config for different environments. 
 
 ```
 
+## Upgrading from version 1.* to 2.*
+
+Version 2.0 introduced some changes to the format of the config file.
+
+In version 1.0, URLs could be an object, with each group as a key that contains an array of URLs. But in version 2.0 urls should be an array of URLs only. 
+
+```json
+"urls": {
+    "production": [
+        "https://example.com/",
+        "https://example.com/about",
+    ],
+    "staging": [
+        "https://staging.example.com/",
+        "https://staging.example.com/about",
+    ]
+}
+```
+
+If you wish to use groups functionaltiy, you should specify groups in the following format. For each group you can specify configuration that is merged with the top level config, allowing you more flexibility. 
+
+```json
+"groups": {
+    "local": {
+        "urls": [
+            "https://example.local",
+            "https://example.local/blog/test/"
+        ]
+    },
+    "staging": {
+        "urls": [
+            "https://staging.example.com",
+            "https://staging.example.com/blog/test/"
+        ]
+    }
+}
+```
+
+
 ## Caveats
 
 * Node v18 is required to run this project.
