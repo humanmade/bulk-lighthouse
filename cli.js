@@ -38,11 +38,13 @@ function getConfig() {
 
 	if ( config.groups && group in config.groups ) {
 		return {
-			...config,
+			// Remove groups from config.
+			...Object.fromEntries( Object.entries( config ).filter( ( [ key ] ) => key !== 'groups' ) ),
+			// Merge group config with default.
 			...config.groups[ group ],
 		};
 	} else {
-		return config;
+		return Object.fromEntries( Object.entries( config ).filter( ( [ key ] ) => key !== 'groups' ) );
 	}
 }
 
@@ -168,8 +170,6 @@ async function runTestsForUrlPagespeed( strategy, url ) {
 
 	let response;
 
-	console.log( requestUrl.toString() );
-
 	try {
 		const rawResponse = await fetch( requestUrl.toString() );
 		response = await rawResponse.json();
@@ -278,7 +278,6 @@ async function runPagespeed( strategies, urls ) {
 
 		for ( let j = 0; j < urls.length; j += batchSize ) {
 			const batch = urls.slice( j, j + batchSize );
-			console.log( batch );
 			const batchResults = await Promise.all( batch.map( url => runTestsForUrlPagespeed( strategy, url ) ) );
 			strategyResults.push( ...batchResults );
 		}
@@ -335,6 +334,8 @@ async function runLighthouse( strategies, urls ) {
 		process.exitCode = 1;
 	}
 
+	console.log( colors.blue( `Running test${ urls.length !== 1 ? 's' : ''} against ${ urls.length } url${ urls.length !== 1 ? 's' : ''} using the ${ engine } engine.` ) );
+
 	let allResults;
 
 	if ( engine === 'pagespeed' ) {
@@ -387,8 +388,6 @@ async function runLighthouse( strategies, urls ) {
 		} else {
 			console.log( colors.green( 'All tests passed.' ) );
 		}
-
-		console.log();
 	} );
 
 	// Set correct exit code.
