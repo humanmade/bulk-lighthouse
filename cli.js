@@ -34,9 +34,9 @@ function getConfig() {
 
 	const config = JSON.parse( fs.readFileSync( configFile ) );
 
-	const group = process.argv[3] || Object.keys( config.groups )[0];
+	const group = process.argv[3];
 
-	if ( config.groups && group in config.groups ) {
+	if ( group && config.groups && group in config.groups ) {
 		return {
 			// Remove groups from config.
 			...Object.fromEntries( Object.entries( config ).filter( ( [ key ] ) => key !== 'groups' ) ),
